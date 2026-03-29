@@ -97,14 +97,11 @@ class VendorResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('brand_name')
                     ->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('contact_person')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('province.name')
                     ->label('Province')->sortable(),
-                Tables\Columns\TextColumn::make('district.name')
-                    ->label('District')->sortable(),
+
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
                         'warning' => 'pending',
@@ -177,22 +174,6 @@ class VendorResource extends Resource
                         Notification::make()->title('Vendor suspended')->warning()->send();
                     }),
 
-                Tables\Actions\Action::make('toggle_govt')
-                    ->label(fn(Vendor $record) => $record->is_government_approved
-                        ? 'Revoke Govt Approval'
-                        : 'Mark Govt Approved')
-                    ->icon('heroicon-o-shield-check')
-                    ->color(fn(Vendor $record) => $record->is_government_approved ? 'danger' : 'success')
-                    ->requiresConfirmation()
-                    ->action(function (Vendor $record) {
-                        $record->update([
-                            'is_government_approved' => ! $record->is_government_approved,
-                            'govt_approved_at'       => ! $record->is_government_approved ? now() : null,
-                            'govt_approved_by'       => ! $record->is_government_approved
-                                ? Auth::guard('admin')->id() : null,
-                        ]);
-                        Notification::make()->title('Government approval updated')->success()->send();
-                    }),
 
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
