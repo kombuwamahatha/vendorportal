@@ -19,11 +19,11 @@ class AdminUser extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'role',
         'is_active',
         'created_by',
         'last_login_at',
     ];
-
     protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
@@ -35,5 +35,14 @@ class AdminUser extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->is_active === true;
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(function (AdminUser $adminUser) {
+            if ($adminUser->wasChanged('role') || $adminUser->wasRecentlyCreated) {
+                $adminUser->syncRoles([$adminUser->role]);
+            }
+        });
     }
 }

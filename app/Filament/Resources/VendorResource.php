@@ -108,13 +108,15 @@ class VendorResource extends Resource
                 Tables\Columns\TextColumn::make('province.name')
                     ->label('Province')->sortable(),
 
-                Tables\Columns\BadgeColumn::make('status')
-                    ->colors([
-                        'warning' => 'pending',
-                        'success' => 'approved',
-                        'danger'  => 'rejected',
-                        'gray'    => 'suspended',
-                    ]),
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
+                    ->color(fn(string $state): string => match($state) {
+                        'pending'   => 'warning',
+                        'approved'  => 'success',
+                        'rejected'  => 'danger',
+                        'suspended' => 'gray',
+                        default     => 'gray',
+                    }),
                 Tables\Columns\IconColumn::make('is_government_approved')
                     ->label('Govt. Approved')
                     ->boolean(),
