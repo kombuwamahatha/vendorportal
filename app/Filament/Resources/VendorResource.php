@@ -13,6 +13,12 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use App\Mail\VendorApprovedMail;
+use App\Mail\VendorRejectedMail;
+use App\Mail\VendorSuspendedMail;
 
 class VendorResource extends Resource
 {
@@ -131,19 +137,32 @@ class VendorResource extends Resource
                     ->label('Government Approved'),
             ])
             ->actions([
+
                 Tables\Actions\Action::make('approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->visible(fn(Vendor $record) => $record->status === 'pending')
                     ->requiresConfirmation()
+                    ->modalHeading('Approve Vendor')
+                    ->modalDescription('This will approve the vendor and send their login credentials via email.')
                     ->action(function (Vendor $record) {
+                        $plainPassword = Str::random(12);
+
                         $record->update([
                             'status'      => 'approved',
+                            'password'    => $plainPassword,
                             'approved_at' => now(),
                             'approved_by' => Auth::guard('admin')->id(),
                         ]);
-                        Notification::make()->title('Vendor approved')->success()->send();
+
+                        Mail::to($record->email)->send(new VendorApprovedMail($record, $plainPassword));
+
+                        Notification::make()
+                            ->title('Vendor approved')
+                            ->body('Login credentials sent to ' . $record->email)
+                            ->success()
+                            ->send();
                     }),
 
                 Tables\Actions\Action::make('reject')
@@ -153,26 +172,47 @@ class VendorResource extends Resource
                     ->visible(fn(Vendor $record) => $record->status === 'pending')
                     ->form([
                         Forms\Components\Textarea::make('rejection_reason')
-                            ->required()->label('Reason for rejection'),
+                            ->required()
+                            ->label('Reason for rejection')
+                            ->helperText('This reason will be included in the email sent to the vendor.'),
                     ])
                     ->action(function (Vendor $record, array $data) {
                         $record->update([
                             'status'           => 'rejected',
                             'rejection_reason' => $data['rejection_reason'],
                         ]);
-                        Notification::make()->title('Vendor rejected')->danger()->send();
+
+                        Mail::to($record->email)->send(new VendorRejectedMail($record, $data['rejection_reason']));
+
+                        Notification::make()
+                            ->title('Vendor rejected')
+                            ->body('Rejection email sent to ' . $record->email)
+                            ->danger()
+                            ->send();
                     }),
 
                 Tables\Actions\Action::make('suspend')
-                    ->label('Suspend')
-                    ->icon('heroicon-o-pause-circle')
-                    ->color('warning')
-                    ->visible(fn(Vendor $record) => $record->status === 'approved')
-                    ->requiresConfirmation()
-                    ->action(function (Vendor $record) {
-                        $record->update(['status' => 'suspended']);
-                        Notification::make()->title('Vendor suspended')->warning()->send();
-                    }),
+                ->label('Suspend')
+                ->icon('heroicon-o-pause-circle')
+                ->color('warning')
+                ->visible(fn(Vendor $record) => $record->status === 'approved')
+                ->form([
+                    Forms\Components\Textarea::make('reason')
+                        ->required()
+                        ->label('Reason for suspension')
+                        ->helperText('This reason will be included in the email sent to the vendor.'),
+                ])
+                ->action(function (Vendor $record, array $data) {
+                    $record->update(['status' => 'suspended']);
+
+                    Mail::to($record->email)->send(new VendorSuspendedMail($record, $data['reason']));
+
+                    Notification::make()
+                        ->title('Vendor suspended')
+                        ->body('Suspension email sent to ' . $record->email)
+                        ->warning()
+                        ->send();
+                }),
 
 
                 Tables\Actions\ViewAction::make(),
